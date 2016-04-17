@@ -173,8 +173,8 @@ class ShoppingCart extends Component
         }
 
         //  if we cant find a cart item we gonna assume it's a new record
-        if (!$cartItem = Cart::findOne($searchCriteria)) {
-            $cartItem = new Cart();
+        if (!$cartItems = Cart::findAll($searchCriteria)) {
+            $cartItems = [new Cart()];
         }
         $price = $position->discountPrice;
         //TODO to remove and use offers
@@ -194,22 +194,22 @@ class ShoppingCart extends Component
                 $price = $dPrice - $dPrice * $lastMaxPercent;
             }
         }
-        $cartItem->session = Yii::$app->session->id;
-        $cartItem->id_user = Yii::$app->user->isGuest ? null : Yii::$app->user->getId();
-        $cartItem->id_product = $position->id;
-        //$cartItem->id_erp = $position->$erp;
-        $cartItem->qty = $qty;
-        $cartItem->price = $position->price;
-        $cartItem->old_price = $position->oldPrice;
-        //$cartItem->discounted_price = $position->discountPrice;
-        $cartItem->discounted_price = $price;
-        $cartItem->status = $status;
-        $cartItem->website = $website;
-
-        if (!$cartItem->save()) {
-            throw new Exception('Could not save cart data', $cartItem->getErrors());
+        foreach($cartItems as $cartItem){
+            $cartItem->session = Yii::$app->session->id;
+            $cartItem->id_user = Yii::$app->user->isGuest ? null : Yii::$app->user->getId();
+            $cartItem->id_product = $position->id;
+            //$cartItem->id_erp = $position->$erp;
+            $cartItem->qty = $qty;
+            $cartItem->price = $position->price;
+            $cartItem->old_price = $position->oldPrice;
+            //$cartItem->discounted_price = $position->discountPrice;
+            $cartItem->discounted_price = $price;
+            $cartItem->status = $status;
+            $cartItem->website = $website;
+            if (!$cartItem->save()) {
+                throw new Exception('Could not save cart data', $cartItem->getErrors());
+            }
         }
-
     }
 
     /** save user to db on login for all lines where session = $session */
