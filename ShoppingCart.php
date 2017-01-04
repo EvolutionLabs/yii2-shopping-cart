@@ -212,25 +212,39 @@ class ShoppingCart extends Component
         }
     }
 
-    /** save user to db on login for all lines where session = $session */
+    /** Formally was used to attribute all cart items with this session to the current user
+     *  That would create problems because we were "keeping" the session id after login
+     *
+     * Currently moves cart items from this session to the current user and attributes the current session id
+     */
     /** @param int $session */
-    public function saveUserToDB($session) { //problema : daca produsul se afla deja in cosul userului, trebuie facuta suma produselor.
-        $model = Cart::findAll(['session'=>$session]);
-        if(isset($model)) {
-            foreach($model as $mods) {
-                /** @var \frontend\models\Cart $model2 */
-                $model2 = Cart::findOne(['id_user'=>Yii::$app->user->getId(),'id_product'=>$mods->id_product]);
-                if($model2) { //if product is already in user cart
-                    $model2->qty += $mods->qty;
-                    $model2->status = 1;
-                    $model2->save();
-                    $mods->delete();
+    public function saveUserToDB($session) {
+        /** @var Cart[] $oldCartItems */
+        $oldCartItems = Cart::findAll(['session'=>$session]);
+        if($oldCartItems){
+            $oldCartItems = ArrayHelper::index($oldCartItems, 'id_product');
+            /** @var Cart[] $userCartItems */
+            $userCartItems = Cart::findAll([
+                'id_user'    => Yii::$app->user->getId(),
+                'id_product' => ArrayHelper::getColumn($oldCartItems, 'id_product')
+            ]);
+
+            $toDelete = [];
+            Yii::warning($oldCartItems);
+            if($userCartItems){
+                foreach($userCartItems as $userCartItem){
+                    $userCartItem->qty = max($oldCartItems[$userCartItem->id_product]->qty, $userCartItem->qty);
+                    $userCartItem->status = $userCartItem->qty ? 1 : 0;
+                    $userCartItem->session = Yii::$app->session->id;
+                    $userCartItem->id_user = Yii::$app->user->id;
+                    $userCartItem->save();
+                    $toDelete[] = $oldCartItems[$userCartItem->id_product]->id;
                 }
-                else {
-                    $mods->id_user = Yii::$app->user->getId();
-                    $mods->save();
+                if($toDelete){
+                    Cart::deleteAll(['id' => $toDelete]);
                 }
             }
+            Cart::updateAll(['session' => Yii::$app->session->id, 'id_user' => Yii::$app->user->id], ['session'=>$session] );
         }
     }
 
